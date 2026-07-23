@@ -1,1 +1,4 @@
-rootProject.name = "codeverse-api"
+rootProject.name = "CodeverseAPI"
+
+include("api")
+include("jdbc")

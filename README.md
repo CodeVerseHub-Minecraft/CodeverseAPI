@@ -42,6 +42,21 @@ authorisation decision.
 published the decision has been persisted; offering cancellation would let a
 listener leave storage and behaviour disagreeing.
 
+## Modules
+
+| Module | Artifact | Contents |
+|---|---|---|
+| `api` | `api` | interfaces and value types, no dependencies at all |
+| `jdbc` | `jdbc` | an `IdentityService` that reads the shared database directly |
+
+The `api` module deliberately has no dependencies. Anything added there lands on
+the classpath of every plugin consuming the contract, whether they use it or not.
+
+The `jdbc` module exists because a backend has no authentication plugin to ask.
+It reads the same rows the proxy writes, behind the same interface, so consumer
+code cannot tell which implementation it received. Burying it inside one plugin
+would put it out of reach of every other.
+
 ## Using it
 
 ```kotlin
@@ -50,13 +65,28 @@ repositories {
 }
 
 dependencies {
-    compileOnly("com.github.CodeVerseHub-Minecraft:CodeverseAPI:0.1.0")
+    compileOnly("com.github.CodeVerseHub-Minecraft.CodeverseAPI:api:0.2.0")
+
+    // Only on servers that resolve identity from the database themselves,
+    // which means anything that is not the proxy.
+    implementation("com.github.CodeVerseHub-Minecraft.CodeverseAPI:jdbc:0.2.0")
 }
 ```
 
-`compileOnly` is correct: a providing plugin supplies the implementation at
-runtime, and shading the API would give you a second copy of every interface
-that is not the one the provider registered.
+`compileOnly` for `api` is correct: a providing plugin supplies the
+implementation at runtime, and shading the contract would give you a second copy
+of every interface that is not the one the provider registered.
+
+`implementation` for `jdbc` is correct for the opposite reason: it is an
+implementation you ship yourself.
+
+### Note on coordinates
+
+Version `0.1.0` was a single module published as
+`com.github.CodeVerseHub-Minecraft:CodeverseAPI`. From `0.2.0` the group carries
+the repository name and each module is its own artifact, which is how JitPack
+addresses a multi module build. Nothing consumed `0.1.0`, so nothing breaks, but
+the coordinates are not interchangeable.
 
 ```java
 CodeverseApiProvider.find().ifPresent(api -> {
@@ -79,6 +109,27 @@ CodeverseApiProvider.find().ifPresent(api -> {
 
 Use `find()` rather than `get()` during your own startup: plugin load order is
 not guaranteed, and an absent API at that point is normal.
+
+### Resolving identity on a backend
+
+```java
+JdbcIdentityService identities = new JdbcIdentityService(
+        dataSource, executor, "codeverse_accounts", Duration.ofMinutes(5));
+
+if (!identities.probe()) {
+    logger.error("The accounts table could not be read. Restrictions will be keyed to "
+            + "individual accounts rather than to people, so switching accounts sheds them.");
+}
+```
+
+The table needs one column beyond what the authentication plugin created
+originally:
+
+```sql
+ALTER TABLE codeverse_accounts
+  ADD COLUMN discord_id VARCHAR(32) NULL,
+  ADD KEY idx_discord (discord_id);
+```
 
 ## The one rule worth repeating
 

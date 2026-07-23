@@ -1,68 +1,69 @@
 plugins {
     java
-    `java-library`
     `maven-publish`
 }
 
-group = "net.codeverse"
-version = "0.1.0"
+subprojects {
+    apply(plugin = "java")
+    apply(plugin = "java-library")
+    apply(plugin = "maven-publish")
 
-repositories {
-    mavenCentral()
-}
+    group = "net.codeverse"
+    version = "0.2.0"
 
-dependencies {
-    testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
-
-java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(25))
+    repositories {
+        mavenCentral()
     }
-    // Published so that consumers get parameter names and documentation in
-    // their editor. An API nobody can read from the IDE is an API nobody uses
-    // correctly.
-    withSourcesJar()
-    withJavadocJar()
-}
 
-tasks.withType<JavaCompile> {
-    options.encoding = "UTF-8"
-    options.release.set(21)
-    options.compilerArgs.add("-Xlint:all")
-    options.compilerArgs.add("-parameters")
-}
+    dependencies {
+        "testImplementation"("org.junit.jupiter:junit-jupiter:5.11.4")
+        "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+    }
 
-tasks.withType<Javadoc> {
-    (options as StandardJavadocDocletOptions).addStringOption("Xdoclint:none", "-quiet")
-}
+    extensions.configure<JavaPluginExtension> {
+        toolchain {
+            languageVersion.set(JavaLanguageVersion.of(25))
+        }
+        // Published so consumers get parameter names and documentation in their
+        // editor. An API nobody can read from the IDE is one used incorrectly.
+        withSourcesJar()
+        withJavadocJar()
+    }
 
-tasks.test {
-    useJUnitPlatform()
-}
+    tasks.withType<JavaCompile> {
+        options.encoding = "UTF-8"
+        // Targets 21 rather than 25 so consumers are not forced onto the same
+        // JDK the plugins implementing this happen to use.
+        options.release.set(21)
+        options.compilerArgs.add("-Xlint:all")
+        options.compilerArgs.add("-parameters")
+    }
 
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            from(components["java"])
-            artifactId = "codeverse-api"
+    tasks.withType<Javadoc> {
+        (options as StandardJavadocDocletOptions).addStringOption("Xdoclint:none", "-quiet")
+    }
 
-            pom {
-                name.set("Codeverse API")
-                description.set("Shared contract for Codeverse network plugins: identity, trust tiers, "
-                        + "voice restrictions, account linking and events")
-                url.set("https://github.com/CodeVerseHub-Minecraft/CodeverseAPI")
-                licenses {
-                    license {
-                        name.set("MIT License")
-                        url.set("https://opensource.org/licenses/MIT")
+    tasks.withType<Test> {
+        useJUnitPlatform()
+    }
+
+    extensions.configure<PublishingExtension> {
+        publications {
+            create<MavenPublication>("maven") {
+                from(components["java"])
+                pom {
+                    url.set("https://github.com/CodeVerseHub-Minecraft/CodeverseAPI")
+                    licenses {
+                        license {
+                            name.set("MIT License")
+                            url.set("https://opensource.org/licenses/MIT")
+                        }
                     }
-                }
-                developers {
-                    developer {
-                        id.set("codeversehub-minecraft")
-                        name.set("CodeVerseHub-Minecraft Subteam")
+                    developers {
+                        developer {
+                            id.set("codeversehub-minecraft")
+                            name.set("CodeVerseHub-Minecraft Subteam")
+                        }
                     }
                 }
             }
